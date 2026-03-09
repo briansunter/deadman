@@ -1,0 +1,15 @@
+# Copy to .dev.vars for local development
+
+# REQUIRED - secures all endpoints
+AUTH_TOKEN=change-me-to-a-secure-random-token
+
+# Discord webhook URL (Server Settings > Integrations > Webhooks)
+# DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+
+# Telegram bot token and chat ID
+# TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+# TELEGRAM_CHAT_ID=-1001234567890
+
+# Cloudflare Email Routing (set in wrangler.toml [vars] or here)
+# EMAIL_FROM=deadman@yourdomain.com
+# EMAIL_TO=alerts@yourdomain.com

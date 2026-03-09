@@ -1,0 +1,39 @@
+name = "deadman"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Check heartbeat every minute
+[triggers]
+crons = ["* * * * *"]
+
+# Durable Object bindings
+[[durable_objects.bindings]]
+name = "HEARTBEAT_MONITOR"
+class_name = "HeartbeatMonitor"
+
+# Durable Object migrations
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["HeartbeatMonitor"]
+
+# Cloudflare Email Routing - send email binding
+# Requires Email Routing enabled on your domain
+[[send_email]]
+name = "EMAIL"
+
+# Secrets (set via `wrangler secret put <NAME>`):
+#
+#   wrangler secret put AUTH_TOKEN            # REQUIRED - secures all endpoints
+#   wrangler secret put DISCORD_WEBHOOK_URL   # Optional - Discord channel webhook
+#   wrangler secret put TELEGRAM_BOT_TOKEN    # Optional - Telegram bot token
+#   wrangler secret put TELEGRAM_CHAT_ID      # Optional - Telegram chat/group ID
+
+[vars]
+# How long (seconds) without a heartbeat before alerting. Default: 5 minutes
+HEARTBEAT_TIMEOUT_SECONDS = "300"
+# Cooldown between repeated alert notifications (seconds). Default: 15 minutes
+ALERT_COOLDOWN_SECONDS = "900"
+# Cloudflare Email Routing addresses (sender must be on a CF Email Routing domain)
+# EMAIL_FROM = "deadman@yourdomain.com"
+# EMAIL_TO = "alerts@yourdomain.com"

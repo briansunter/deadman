@@ -1,0 +1,43 @@
+# Example Alertmanager configuration to send Watchdog alerts to Deadman Switch
+#
+# The Watchdog alert is typically included in kube-prometheus-stack by default.
+# It fires continuously as a "dead man's switch" to prove alerting is working.
+#
+# Prometheus rule (usually pre-configured):
+#   - alert: Watchdog
+#     expr: vector(1)
+#     labels:
+#       severity: none
+#     annotations:
+#       description: "Dead man's switch - ensures alerting pipeline is functional."
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "default"
+  group_by: ["alertname", "namespace"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    # Route Watchdog alerts to the deadman switch webhook
+    - match:
+        alertname: Watchdog
+      receiver: "deadman-switch"
+      group_interval: 1m
+      repeat_interval: 1m  # Send every minute to keep the heartbeat alive
+      continue: false
+
+receivers:
+  - name: "default"
+    # Your normal alerting receivers here
+
+  - name: "deadman-switch"
+    webhook_configs:
+      - url: "https://deadman.YOUR_SUBDOMAIN.workers.dev/webhook/alertmanager"
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: "YOUR_AUTH_TOKEN_HERE"
+        send_resolved: false  # We only care about firing alerts
