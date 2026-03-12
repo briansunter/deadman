@@ -69,7 +69,7 @@ export function getRuntimeConfigIssues(env: Partial<Env>): string[] {
 
   if (!hasCompleteChannel) {
     issues.push(
-      "At least one notification channel must be fully configured (Discord, Telegram, or Email)"
+      "At least one notification channel must be fully configured (Slack, Discord, Telegram, or Email)"
     );
   }
 
@@ -93,6 +93,7 @@ function getNotificationConfigState(env: Partial<Env>): {
   issues: string[];
 } {
   const issues: string[] = [];
+  const hasSlack = hasValue(env.SLACK_WEBHOOK_URL);
   const hasDiscord = hasValue(env.DISCORD_WEBHOOK_URL);
   const hasTelegramToken = hasValue(env.TELEGRAM_BOT_TOKEN);
   const hasTelegramChatId = hasValue(env.TELEGRAM_CHAT_ID);
@@ -115,7 +116,7 @@ function getNotificationConfigState(env: Partial<Env>): {
   const hasEmail = hasEmailFrom && hasEmailTo && Boolean(env.EMAIL);
 
   return {
-    hasCompleteChannel: hasDiscord || hasTelegram || hasEmail,
+    hasCompleteChannel: hasSlack || hasDiscord || hasTelegram || hasEmail,
     issues,
   };
 }

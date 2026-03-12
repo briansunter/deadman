@@ -5,6 +5,8 @@ import { z } from "zod/v4";
 export interface Env extends Cloudflare.Env {
   // Auth
   AUTH_TOKEN: string;
+  // Slack
+  SLACK_WEBHOOK_URL?: string;
   // Discord
   DISCORD_WEBHOOK_URL?: string;
   // Telegram

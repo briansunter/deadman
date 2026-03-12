@@ -15,6 +15,7 @@ export async function sendNotifications(params: NotifyParams): Promise<void> {
   }
 
   const channels: Array<{ name: string; fn: () => Promise<boolean> }> = [
+    { name: "slack", fn: () => sendSlack(params) },
     { name: "discord", fn: () => sendDiscord(params) },
     { name: "telegram", fn: () => sendTelegram(params) },
     { name: "email", fn: () => sendCloudflareEmail(params) },
@@ -46,6 +47,25 @@ export async function sendNotifications(params: NotifyParams): Promise<void> {
     console.error(`All ${configured} configured notification channel(s) failed`);
     throw new Error(`All ${configured} configured notification channel(s) failed`);
   }
+}
+
+/** Returns true if the channel was configured and sent, false if skipped. Throws on failure. */
+async function sendSlack({ title, message, env, isRecovery }: NotifyParams): Promise<boolean> {
+  if (!env.SLACK_WEBHOOK_URL) return false;
+
+  const emoji = isRecovery ? ":white_check_mark:" : ":rotating_light:";
+  const res = await fetch(env.SLACK_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: `${emoji} *${title}*\n${message}`,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Slack webhook failed: ${res.status} ${await res.text()}`);
+  }
+  return true;
 }
 
 /** Returns true if the channel was configured and sent, false if skipped. Throws on failure. */

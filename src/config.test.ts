@@ -36,7 +36,7 @@ describe("runtime config validation", () => {
         ALERT_COOLDOWN_SECONDS: "900",
       } as never)
     ).toContain(
-      "At least one notification channel must be fully configured (Discord, Telegram, or Email)"
+      "At least one notification channel must be fully configured (Slack, Discord, Telegram, or Email)"
     );
   });
 

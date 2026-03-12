@@ -25,6 +25,7 @@ name = "EMAIL"
 # Secrets (set via `wrangler secret put <NAME>`):
 #
 #   wrangler secret put AUTH_TOKEN            # REQUIRED - secures all endpoints
+#   wrangler secret put SLACK_WEBHOOK_URL      # Optional - Slack incoming webhook
 #   wrangler secret put DISCORD_WEBHOOK_URL   # Optional - Discord channel webhook
 #   wrangler secret put TELEGRAM_BOT_TOKEN    # Optional - Telegram bot token
 #   wrangler secret put TELEGRAM_CHAT_ID      # Optional - Telegram chat/group ID
