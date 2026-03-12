@@ -8,18 +8,20 @@ Prometheus can't alert you if it's down. Deadman runs on independent infrastruct
 
 ## How It Works
 
-```mermaid
-graph TD
-    P[Prometheus] --> A[Alertmanager]
-    A -->|Watchdog POST| D[Deadman Worker]
-    D --> DO[Durable Object]
-    DO -->|timeout| N[Notifications]
+```
+Prometheus → Alertmanager → POST /webhook → Deadman Worker → Durable Object
+                                                                  ↓
+                                                          timeout expires?
+                                                           ↓           ↓
+                                                          no           yes
+                                                     wait for      alert via
+                                                   next heartbeat  Discord/Slack/
+                                                                   Telegram/Email
 ```
 
-- Alertmanager sends Watchdog alerts to Deadman every minute
-- Each heartbeat resets a timeout (default 5 min)
-- If the timeout expires, Deadman alerts through all configured channels
-- When heartbeats resume, a recovery notification is sent
+1. **Heartbeat**: Alertmanager sends a Watchdog alert to Deadman every minute. Each one resets a countdown timer (default 5 min).
+2. **Alert**: If the timer expires with no heartbeat, notifications fire on all configured channels. Repeats with a cooldown (default 15 min).
+3. **Recovery**: When heartbeats resume after an alert, a recovery notification is sent.
 
 ## Quick Start
 
