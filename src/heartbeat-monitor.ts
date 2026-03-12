@@ -1,5 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
-import { getAlertCooldownMs, getHeartbeatTimeoutMs } from "./config.ts";
+import {
+  getAlertCooldownMs,
+  getHeartbeatTimeoutMs,
+  renderAlertTitle,
+  renderAlertMessage,
+  renderRecoveryTitle,
+  renderRecoveryMessage,
+  type AlertTemplateVars,
+} from "./config.ts";
 import type { Env, HeartbeatState } from "./types.ts";
 import { sendNotifications } from "./notify.ts";
 
@@ -37,10 +45,16 @@ export class HeartbeatMonitor extends DurableObject<Env> {
 
     if (wasAlerting) {
       console.log("Heartbeat recovered - alerting system is back online");
+      const vars: AlertTemplateVars = {
+        elapsed_minutes: "0",
+        source,
+        last_heartbeat: new Date(now).toISOString(),
+        checked_at: new Date(now).toISOString(),
+      };
       try {
         await sendNotifications({
-          title: "Deadman Switch - RECOVERED",
-          message: `Alerting system is back online.\nSource: ${source}\nRecovered at: ${new Date(now).toISOString()}`,
+          title: renderRecoveryTitle(this.env, vars),
+          message: renderRecoveryMessage(this.env, vars),
           env: this.env,
           isRecovery: true,
         });
@@ -111,17 +125,17 @@ export class HeartbeatMonitor extends DurableObject<Env> {
       `ALERT: No heartbeat for ${elapsedMinutes} minutes! Last source: ${state.source}`
     );
 
+    const vars: AlertTemplateVars = {
+      elapsed_minutes: String(elapsedMinutes),
+      source: state.source || "unknown",
+      last_heartbeat: state.lastHeartbeat ? new Date(state.lastHeartbeat).toISOString() : "never",
+      checked_at: new Date(now).toISOString(),
+    };
+
     try {
       await sendNotifications({
-        title: "Deadman Switch - ALERTING SYSTEM DOWN",
-        message: [
-          `No heartbeat received for ${elapsedMinutes} minute(s).`,
-          `Last heartbeat source: ${state.source || "unknown"}`,
-          `Last heartbeat: ${state.lastHeartbeat ? new Date(state.lastHeartbeat).toISOString() : "never"}`,
-          `Checked at: ${new Date(now).toISOString()}`,
-          "",
-          "Your Prometheus/Alertmanager alerting pipeline may be down!",
-        ].join("\n"),
+        title: renderAlertTitle(this.env, vars),
+        message: renderAlertMessage(this.env, vars),
         env: this.env,
       });
 

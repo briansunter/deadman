@@ -38,3 +38,8 @@ ALERT_COOLDOWN_SECONDS = "900"
 # Cloudflare Email Routing addresses (sender must be on a CF Email Routing domain)
 # EMAIL_FROM = "deadman@yourdomain.com"
 # EMAIL_TO = "alerts@yourdomain.com"
+# Custom alert messages. Use {elapsed_minutes}, {source}, {last_heartbeat}, {checked_at} placeholders.
+# ALERT_TITLE = "Deadman Switch - ALERTING SYSTEM DOWN"
+# ALERT_MESSAGE = "No heartbeat received for {elapsed_minutes} minute(s).\nLast source: {source}"
+# RECOVERY_TITLE = "Deadman Switch - RECOVERED"
+# RECOVERY_MESSAGE = "Alerting system is back online.\nSource: {source}"

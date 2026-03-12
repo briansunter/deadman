@@ -209,6 +209,31 @@ Set in `wrangler.toml` under `[vars]` or in the Cloudflare dashboard.
 | `ALERT_COOLDOWN_SECONDS` | `900` (15 min) | Minimum seconds between repeated alert notifications |
 | `EMAIL_FROM` | — | Sender address for Cloudflare Email Routing |
 | `EMAIL_TO` | — | Recipient address for Cloudflare Email Routing |
+| `ALERT_TITLE` | `Deadman Switch - ALERTING SYSTEM DOWN` | Custom title for alert notifications |
+| `ALERT_MESSAGE` | *(see below)* | Custom body for alert notifications |
+| `RECOVERY_TITLE` | `Deadman Switch - RECOVERED` | Custom title for recovery notifications |
+| `RECOVERY_MESSAGE` | *(see below)* | Custom body for recovery notifications |
+
+### Custom Alert Messages
+
+All four message template variables support these placeholders:
+
+| Placeholder | Value |
+|---|---|
+| `{elapsed_minutes}` | Minutes since last heartbeat (alert only, `0` for recovery) |
+| `{source}` | Source of last heartbeat (e.g., `alertmanager:Watchdog`) |
+| `{last_heartbeat}` | ISO 8601 timestamp of last heartbeat |
+| `{checked_at}` | ISO 8601 timestamp when the check ran |
+
+**Example custom configuration** in `wrangler.toml`:
+
+```toml
+[vars]
+ALERT_TITLE = "PROD ALERT: Monitoring pipeline down"
+ALERT_MESSAGE = "No heartbeat for {elapsed_minutes}min. Source: {source}. Check Prometheus and Alertmanager immediately."
+RECOVERY_TITLE = "PROD RECOVERED: Monitoring pipeline restored"
+RECOVERY_MESSAGE = "Pipeline is back. Source: {source} at {checked_at}."
+```
 
 ### Notification Channels
 

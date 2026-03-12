@@ -3,6 +3,52 @@ import type { Env } from "./types.ts";
 const DEFAULT_TIMEOUT_SECONDS = 300;
 const DEFAULT_COOLDOWN_SECONDS = 900;
 
+const DEFAULT_ALERT_TITLE = "Deadman Switch - ALERTING SYSTEM DOWN";
+const DEFAULT_ALERT_MESSAGE = [
+  "No heartbeat received for {elapsed_minutes} minute(s).",
+  "Last heartbeat source: {source}",
+  "Last heartbeat: {last_heartbeat}",
+  "Checked at: {checked_at}",
+  "",
+  "Your Prometheus/Alertmanager alerting pipeline may be down!",
+].join("\n");
+
+const DEFAULT_RECOVERY_TITLE = "Deadman Switch - RECOVERED";
+const DEFAULT_RECOVERY_MESSAGE = [
+  "Alerting system is back online.",
+  "Source: {source}",
+  "Recovered at: {checked_at}",
+].join("\n");
+
+export interface AlertTemplateVars {
+  elapsed_minutes: string;
+  source: string;
+  last_heartbeat: string;
+  checked_at: string;
+}
+
+function renderTemplate(template: string, vars: AlertTemplateVars): string {
+  return template.replace(/\{(\w+)\}/g, (match, key) =>
+    key in vars ? vars[key as keyof AlertTemplateVars] : match
+  );
+}
+
+export function renderAlertTitle(env: Pick<Env, "ALERT_TITLE">, vars: AlertTemplateVars): string {
+  return renderTemplate(env.ALERT_TITLE?.trim() || DEFAULT_ALERT_TITLE, vars);
+}
+
+export function renderAlertMessage(env: Pick<Env, "ALERT_MESSAGE">, vars: AlertTemplateVars): string {
+  return renderTemplate(env.ALERT_MESSAGE?.trim() || DEFAULT_ALERT_MESSAGE, vars);
+}
+
+export function renderRecoveryTitle(env: Pick<Env, "RECOVERY_TITLE">, vars: AlertTemplateVars): string {
+  return renderTemplate(env.RECOVERY_TITLE?.trim() || DEFAULT_RECOVERY_TITLE, vars);
+}
+
+export function renderRecoveryMessage(env: Pick<Env, "RECOVERY_MESSAGE">, vars: AlertTemplateVars): string {
+  return renderTemplate(env.RECOVERY_MESSAGE?.trim() || DEFAULT_RECOVERY_MESSAGE, vars);
+}
+
 export class RuntimeConfigError extends Error {
   constructor(message: string) {
     super(message);

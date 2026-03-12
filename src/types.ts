@@ -15,6 +15,11 @@ export interface Env extends Cloudflare.Env {
   // Cloudflare Email Routing
   EMAIL_FROM?: string;
   EMAIL_TO?: string;
+  // Custom alert messages (templates with {elapsed_minutes}, {source}, {last_heartbeat}, {checked_at})
+  ALERT_TITLE?: string;
+  ALERT_MESSAGE?: string;
+  RECOVERY_TITLE?: string;
+  RECOVERY_MESSAGE?: string;
 }
 
 // --- Alertmanager webhook payload (Zod validated) ---
