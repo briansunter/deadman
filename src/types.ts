@@ -16,29 +16,21 @@ export interface Env extends Cloudflare.Env {
 }
 
 // --- Alertmanager webhook payload (Zod validated) ---
+// Only validate the fields we actually use. Lenient on everything else so
+// Alertmanager version changes don't silently break the dead man's switch.
 
-const AlertmanagerAlertSchema = z.object({
-  status: z.enum(["firing", "resolved"]),
-  labels: z.record(z.string(), z.string()),
-  annotations: z.record(z.string(), z.string()).optional().default({}),
-  startsAt: z.string(),
-  endsAt: z.string(),
-  generatorURL: z.string().optional().default(""),
-  fingerprint: z.string(),
-});
+const AlertmanagerAlertSchema = z
+  .object({
+    status: z.enum(["firing", "resolved"]),
+    labels: z.record(z.string(), z.string()),
+  })
+  .loose();
 
-export const AlertmanagerPayloadSchema = z.object({
-  version: z.string(),
-  groupKey: z.string(),
-  truncatedAlerts: z.number().optional().default(0),
-  status: z.enum(["firing", "resolved"]),
-  receiver: z.string(),
-  groupLabels: z.record(z.string(), z.string()).optional().default({}),
-  commonLabels: z.record(z.string(), z.string()).optional().default({}),
-  commonAnnotations: z.record(z.string(), z.string()).optional().default({}),
-  externalURL: z.string().optional().default(""),
-  alerts: z.array(AlertmanagerAlertSchema).min(1),
-});
+export const AlertmanagerPayloadSchema = z
+  .object({
+    alerts: z.array(AlertmanagerAlertSchema).min(1),
+  })
+  .loose();
 
 export type AlertmanagerPayload = z.infer<typeof AlertmanagerPayloadSchema>;
 export type AlertmanagerAlert = z.infer<typeof AlertmanagerAlertSchema>;

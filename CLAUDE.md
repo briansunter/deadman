@@ -25,7 +25,7 @@ Use `bun` instead of `npm`/`node` for all commands.
 
 **Request flow**:
 1. Alertmanager POSTs Watchdog alert → `/webhook/alertmanager`
-2. Worker validates auth (timing-safe Bearer token or `?token=`), parses payload with Zod
+2. Worker validates auth (timing-safe Bearer token), parses payload with Zod
 3. Only `Watchdog`/`DeadMansSwitch`/`InfoInhibitor` alerts refresh the heartbeat — other alerts are ignored
 4. HeartbeatMonitor Durable Object records timestamp, schedules alarm at `now + timeout`
 5. Alarm or cron (every minute) fires → if elapsed > timeout, triggers notifications
