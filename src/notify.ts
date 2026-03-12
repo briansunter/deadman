@@ -1,5 +1,3 @@
-import { EmailMessage } from "cloudflare:email";
-import { createMimeMessage } from "mimetext";
 import { RuntimeConfigError, getNotificationConfigIssues } from "./config.ts";
 import type { Env } from "./types.ts";
 
@@ -106,16 +104,11 @@ function escapeMarkdown(text: string): string {
 async function sendCloudflareEmail({ title, message, env }: NotifyParams): Promise<boolean> {
   if (!env.EMAIL || !env.EMAIL_FROM || !env.EMAIL_TO) return false;
 
-  const msg = createMimeMessage();
-  msg.setSender({ name: "Deadman Switch", addr: env.EMAIL_FROM });
-  msg.setRecipient(env.EMAIL_TO);
-  msg.setSubject(title);
-  msg.addMessage({
-    contentType: "text/plain",
-    data: message,
+  await env.EMAIL.send({
+    from: { name: "Deadman Switch", email: env.EMAIL_FROM },
+    to: env.EMAIL_TO,
+    subject: title,
+    text: message,
   });
-
-  const emailMessage = new EmailMessage(env.EMAIL_FROM, env.EMAIL_TO, msg.asRaw());
-  await env.EMAIL.send(emailMessage);
   return true;
 }

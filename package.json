@@ -16,7 +16,6 @@
     "wrangler": "^4.71.0"
   },
   "dependencies": {
-    "mimetext": "^3.0.28",
     "zod": "^4.3.6"
   }
 }
