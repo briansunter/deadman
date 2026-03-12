@@ -113,6 +113,13 @@ export default {
       return json({ status: "ignored", reason: "no watchdog alert firing" });
     }
 
+    // Reset endpoint - clear state back to "waiting"
+    if (path === "/reset") {
+      if (request.method !== "POST") return methodNotAllowed("POST");
+      const monitor = getMonitor(env);
+      return monitor.resetState();
+    }
+
     // Simple ping endpoint (for testing or custom integrations)
     if (path === "/ping") {
       const source = url.searchParams.get("source") || "ping";

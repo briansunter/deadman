@@ -135,6 +135,15 @@ export class HeartbeatMonitor extends DurableObject<Env> {
     }
   }
 
+  /** Reset state - returns to "waiting for first heartbeat" mode */
+  async resetState(): Promise<Response> {
+    await this.ctx.storage.deleteAlarm();
+    await this.ctx.storage.delete("state");
+    return new Response(JSON.stringify({ status: "reset", message: "Waiting for first heartbeat" }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   /** Status endpoint - computes effective health from elapsed time */
   async getStatus(): Promise<Response> {
     const state = await this.getState();
