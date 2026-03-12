@@ -9,11 +9,11 @@ Prometheus can't alert you if it's down. Deadman runs on independent infrastruct
 ## How It Works
 
 ```mermaid
-graph LR
-    P[Prometheus] -->|Watchdog alert| A[Alertmanager]
-    A -->|POST /webhook| D[Deadman Worker]
-    D -->|records heartbeat| DO[Durable Object]
-    DO -->|timeout exceeded| N[Discord / Slack / Telegram / Email]
+graph TD
+    P[Prometheus] --> A[Alertmanager]
+    A -->|Watchdog POST| D[Deadman Worker]
+    D --> DO[Durable Object]
+    DO -->|timeout| N[Notifications]
 ```
 
 - Alertmanager sends Watchdog alerts to Deadman every minute
