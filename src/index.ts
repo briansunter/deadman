@@ -130,11 +130,4 @@ export default {
     return json({ error: "Not Found" }, 404);
   },
 
-  // Cron trigger - backup check every minute
-  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
-    console.log(`Cron trigger fired at ${new Date(controller.scheduledTime).toISOString()}`);
-    assertRuntimeConfig(env);
-    const monitor = getMonitor(env);
-    await monitor.checkHeartbeat();
-  },
 } satisfies ExportedHandler<Env>;

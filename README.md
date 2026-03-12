@@ -1,28 +1,25 @@
 # Deadman
 
-A dead man's switch for Prometheus/Alertmanager on Cloudflare Workers.
+A dead man's switch for Prometheus/Alertmanager on Cloudflare Workers + Durable Objects.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/briansunter/deadman)
 
-If Prometheus or Alertmanager goes down, it can't tell you. Deadman watches for Watchdog heartbeats and alerts you through Discord, Slack, Telegram, or Email when they stop.
+Prometheus can't alert you if it's down. Deadman runs on independent infrastructure, expects periodic [Watchdog](https://runbooks.prometheus-operator.dev/runbooks/general/watchdog/) heartbeats from Alertmanager, and notifies you when they stop arriving.
 
 ## How It Works
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Waiting: Deploy
-    Waiting --> Healthy: Heartbeat received
-    Healthy --> Healthy: Heartbeat (resets timer)
-    Healthy --> Alerting: Timeout exceeded
-    Alerting --> Alerting: Re-alerts with cooldown
-    Alerting --> Healthy: Heartbeat (sends recovery)
+graph LR
+    P[Prometheus] -->|Watchdog alert| A[Alertmanager]
+    A -->|POST /webhook| D[Deadman Worker]
+    D -->|records heartbeat| DO[Durable Object]
+    DO -->|timeout exceeded| N[Discord / Slack / Telegram / Email]
 ```
 
-1. Prometheus fires a `Watchdog` alert every minute via Alertmanager
-2. Alertmanager POSTs to Deadman's webhook endpoint
-3. A Durable Object records the timestamp and schedules an alarm
-4. If no heartbeat arrives before timeout (default 5 min), notifications fire
-5. When heartbeats resume, a recovery notification is sent
+- Alertmanager sends Watchdog alerts to Deadman every minute
+- Each heartbeat resets a timeout (default 5 min)
+- If the timeout expires, Deadman alerts through all configured channels
+- When heartbeats resume, a recovery notification is sent
 
 ## Quick Start
 
@@ -30,57 +27,25 @@ stateDiagram-v2
 git clone https://github.com/briansunter/deadman.git && cd deadman
 bun install && bun run deploy
 
-# Set secrets
 wrangler secret put AUTH_TOKEN           # generate: openssl rand -hex 32
-wrangler secret put DISCORD_WEBHOOK_URL  # or another channel below
+wrangler secret put DISCORD_WEBHOOK_URL  # or another channel
 ```
 
-Or use the **Deploy to Cloudflare** button above, then add secrets in the dashboard.
+Or click **Deploy to Cloudflare** above, then add secrets in the dashboard.
 
-### Verify
+Test it:
 
 ```bash
-# Health check (no auth)
-curl https://deadman.YOUR_SUBDOMAIN.workers.dev/health
-
-# Send a test heartbeat
+# Send a heartbeat
 curl -X POST https://deadman.YOUR_SUBDOMAIN.workers.dev/webhook/alertmanager \
   -H "Authorization: Bearer $AUTH_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"alerts":[{"status":"firing","labels":{"alertname":"Watchdog"}}]}'
 
 # Check status
-curl https://deadman.YOUR_SUBDOMAIN.workers.dev/status \
-  -H "Authorization: Bearer $AUTH_TOKEN"
+curl -H "Authorization: Bearer $AUTH_TOKEN" \
+  https://deadman.YOUR_SUBDOMAIN.workers.dev/status
 ```
-
-## Configuration
-
-### Secrets (via `wrangler secret put`)
-
-| Secret | Required | Description |
-|---|---|---|
-| `AUTH_TOKEN` | **Yes** | Bearer token for all endpoints except `/health` |
-| `DISCORD_WEBHOOK_URL` | No | Discord channel webhook |
-| `SLACK_WEBHOOK_URL` | No | Slack incoming webhook |
-| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token (requires `TELEGRAM_CHAT_ID`) |
-| `TELEGRAM_CHAT_ID` | No | Telegram chat ID (requires `TELEGRAM_BOT_TOKEN`) |
-
-At least one notification channel must be configured.
-
-### Environment Variables (in `wrangler.toml [vars]`)
-
-| Variable | Default | Description |
-|---|---|---|
-| `HEARTBEAT_TIMEOUT_SECONDS` | `300` (5 min) | Seconds before alerting |
-| `ALERT_COOLDOWN_SECONDS` | `900` (15 min) | Seconds between repeated alerts |
-| `EMAIL_FROM` / `EMAIL_TO` | — | Cloudflare Email Routing addresses |
-| `ALERT_TITLE` | `Deadman Switch - ALERTING SYSTEM DOWN` | Custom alert title |
-| `ALERT_MESSAGE` | *(default template)* | Custom alert body |
-| `RECOVERY_TITLE` | `Deadman Switch - RECOVERED` | Custom recovery title |
-| `RECOVERY_MESSAGE` | *(default template)* | Custom recovery body |
-
-Message templates support placeholders: `{elapsed_minutes}`, `{source}`, `{last_heartbeat}`, `{checked_at}`.
 
 ## Alertmanager Setup
 
@@ -105,9 +70,44 @@ route:
       repeat_interval: 1m
 ```
 
-Only `Watchdog`, `DeadMansSwitch`, and `InfoInhibitor` alerts with `status: "firing"` trigger a heartbeat. All other alerts are ignored.
+Only `Watchdog`, `DeadMansSwitch`, and `InfoInhibitor` alerts trigger a heartbeat. Everything else is ignored.
 
-See [alertmanager-config.example.yaml](./alertmanager-config.example.yaml) for a full kube-prometheus-stack example.
+See [alertmanager-config.example.yaml](./alertmanager-config.example.yaml) for a kube-prometheus-stack example.
+
+## Configuration
+
+### Secrets (`wrangler secret put`)
+
+| Secret | Required | Description |
+|---|---|---|
+| `AUTH_TOKEN` | **Yes** | Bearer token for all endpoints except `/health` |
+| `DISCORD_WEBHOOK_URL` | No | Discord channel webhook |
+| `SLACK_WEBHOOK_URL` | No | Slack incoming webhook |
+| `TELEGRAM_BOT_TOKEN` | No | Requires `TELEGRAM_CHAT_ID` |
+| `TELEGRAM_CHAT_ID` | No | Requires `TELEGRAM_BOT_TOKEN` |
+
+At least one notification channel must be configured.
+
+### Environment Variables (`wrangler.toml [vars]`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `HEARTBEAT_TIMEOUT_SECONDS` | `300` (5 min) | How long without a heartbeat before alerting |
+| `ALERT_COOLDOWN_SECONDS` | `900` (15 min) | Minimum interval between repeated alerts |
+| `EMAIL_FROM` / `EMAIL_TO` | — | Cloudflare Email Routing addresses |
+
+### Custom Alert Messages
+
+Override default notification text with template variables:
+
+| Variable | Default |
+|---|---|
+| `ALERT_TITLE` | `Deadman Switch - ALERTING SYSTEM DOWN` |
+| `ALERT_MESSAGE` | *(detailed alert with timestamps)* |
+| `RECOVERY_TITLE` | `Deadman Switch - RECOVERED` |
+| `RECOVERY_MESSAGE` | *(recovery confirmation)* |
+
+Placeholders: `{elapsed_minutes}`, `{source}`, `{last_heartbeat}`, `{checked_at}`
 
 ## API
 
@@ -118,16 +118,17 @@ All endpoints except `/health` require `Authorization: Bearer <token>`.
 | `/health` | GET | Liveness check (no auth) |
 | `/status` | GET | Current heartbeat state |
 | `/webhook/alertmanager` | POST | Alertmanager webhook receiver |
-| `/ping?source=<name>` | GET | Manual heartbeat |
+| `/ping?source=<name>` | GET | Manual heartbeat for testing |
 | `/reset` | POST | Clear state, return to waiting |
 
 ## Development
 
 ```bash
-cp .dev.vars.example .dev.vars  # add test credentials
-bun run dev                     # local dev server
-bun run test                    # run tests
-bun run typecheck               # type check
+cp .dev.vars.example .dev.vars
+bun run dev          # local dev server
+bun run test         # run tests
+bun run typecheck    # type check
+bun run deploy       # deploy to Cloudflare
 ```
 
 ## License

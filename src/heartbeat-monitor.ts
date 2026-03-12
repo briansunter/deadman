@@ -68,31 +68,6 @@ export class HeartbeatMonitor extends DurableObject<Env> {
     });
   }
 
-  /** Called by the cron trigger to ensure alarm is set */
-  async checkHeartbeat(): Promise<void> {
-    const state = await this.getState();
-
-    // If we've never received a heartbeat, nothing to check
-    if (state.lastHeartbeat === 0) {
-      console.log("No heartbeat ever received - skipping check");
-      return;
-    }
-
-    const now = Date.now();
-    const elapsed = now - state.lastHeartbeat;
-    const timeout = this.getTimeout();
-
-    if (elapsed > timeout) {
-      await this.triggerAlert(state, now);
-    }
-
-    // Ensure alarm is always scheduled
-    const currentAlarm = await this.ctx.storage.getAlarm();
-    if (currentAlarm === null) {
-      await this.ctx.storage.setAlarm(now + timeout);
-    }
-  }
-
   /** Durable Object alarm handler - fires when heartbeat timeout expires */
   override async alarm(): Promise<void> {
     const state = await this.getState();
