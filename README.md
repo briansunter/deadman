@@ -23,6 +23,12 @@ Prometheus → Alertmanager → POST /webhook → Deadman Worker → Durable Obj
 2. **Alert**: If the timer expires with no heartbeat, notifications fire on all configured channels. Repeats with a cooldown (default 15 min).
 3. **Recovery**: When heartbeats resume after an alert, a recovery notification is sent.
 
+### Why Durable Objects?
+
+Deadman uses a Cloudflare [Durable Object](https://developers.cloudflare.com/durable-objects/) as a singleton stateful timer. Each heartbeat calls [`setAlarm(now + timeout)`](https://developers.cloudflare.com/durable-objects/api/alarms/), which tells Cloudflare to wake the object up after the timeout expires. The DO doesn't stay running in between — Cloudflare persists the alarm in the DO's SQLite storage and handles scheduling. When the alarm fires, Cloudflare spins up the DO and calls its `alarm()` method, which checks elapsed time and sends notifications if needed.
+
+This means the entire dead man's switch is a single Durable Object with no polling, no cron jobs, and no always-on processes.
+
 ## Quick Start
 
 ```bash
