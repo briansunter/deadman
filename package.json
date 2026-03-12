@@ -6,11 +6,12 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
-    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types",
+    "typecheck": "./node_modules/.bin/tsc --noEmit --pretty false",
     "test": "bun test"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260307.1",
+    "bun-types": "^1.3.10",
     "typescript": "^5",
     "wrangler": "^4.71.0"
   },

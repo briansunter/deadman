@@ -1,14 +1,8 @@
 import { z } from "zod/v4";
-import type { HeartbeatMonitor } from "./heartbeat-monitor.ts";
 
 // --- Env ---
 
-export interface Env {
-  HEARTBEAT_MONITOR: DurableObjectNamespace<HeartbeatMonitor>;
-  EMAIL: SendEmail;
-  // Config
-  HEARTBEAT_TIMEOUT_SECONDS: string;
-  ALERT_COOLDOWN_SECONDS: string;
+export interface Env extends Cloudflare.Env {
   // Auth
   AUTH_TOKEN: string;
   // Discord

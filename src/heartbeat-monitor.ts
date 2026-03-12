@@ -1,25 +1,15 @@
 import { DurableObject } from "cloudflare:workers";
+import { getAlertCooldownMs, getHeartbeatTimeoutMs } from "./config.ts";
 import type { Env, HeartbeatState } from "./types.ts";
 import { sendNotifications } from "./notify.ts";
 
-const DEFAULT_TIMEOUT = 300; // 5 minutes
-const DEFAULT_COOLDOWN = 900; // 15 minutes
-
 export class HeartbeatMonitor extends DurableObject<Env> {
   private getTimeout(): number {
-    const val = parseInt(this.env.HEARTBEAT_TIMEOUT_SECONDS || String(DEFAULT_TIMEOUT), 10);
-    if (Number.isNaN(val) || val <= 0) {
-      throw new Error(`Invalid HEARTBEAT_TIMEOUT_SECONDS: ${this.env.HEARTBEAT_TIMEOUT_SECONDS}`);
-    }
-    return val * 1000;
+    return getHeartbeatTimeoutMs(this.env);
   }
 
   private getCooldown(): number {
-    const val = parseInt(this.env.ALERT_COOLDOWN_SECONDS || String(DEFAULT_COOLDOWN), 10);
-    if (Number.isNaN(val) || val <= 0) {
-      throw new Error(`Invalid ALERT_COOLDOWN_SECONDS: ${this.env.ALERT_COOLDOWN_SECONDS}`);
-    }
-    return val * 1000;
+    return getAlertCooldownMs(this.env);
   }
 
   private async getState(): Promise<HeartbeatState> {

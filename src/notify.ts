@@ -1,5 +1,6 @@
 import { EmailMessage } from "cloudflare:email";
 import { createMimeMessage } from "mimetext";
+import { RuntimeConfigError, getNotificationConfigIssues } from "./config.ts";
 import type { Env } from "./types.ts";
 
 interface NotifyParams {
@@ -10,6 +11,11 @@ interface NotifyParams {
 }
 
 export async function sendNotifications(params: NotifyParams): Promise<void> {
+  const configIssues = getNotificationConfigIssues(params.env);
+  if (configIssues.length > 0) {
+    throw new RuntimeConfigError(configIssues.join("; "));
+  }
+
   const channels: Array<{ name: string; fn: () => Promise<boolean> }> = [
     { name: "discord", fn: () => sendDiscord(params) },
     { name: "telegram", fn: () => sendTelegram(params) },

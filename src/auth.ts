@@ -5,12 +5,17 @@ import type { Env } from "./types.ts";
  * HMACs both inputs with a fixed key so the comparison is always
  * the same length and timing regardless of input lengths.
  */
+const authKeyPromise = crypto.subtle.importKey(
+  "raw",
+  new TextEncoder().encode("deadman-auth-compare-key"),
+  { name: "HMAC", hash: "SHA-256" },
+  false,
+  ["sign"]
+);
+
 async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const encoder = new TextEncoder();
-  const keyData = encoder.encode("deadman-auth-compare-key");
-  const key = await crypto.subtle.importKey(
-    "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
-  );
+  const key = await authKeyPromise;
   const [sigA, sigB] = await Promise.all([
     crypto.subtle.sign("HMAC", key, encoder.encode(a)),
     crypto.subtle.sign("HMAC", key, encoder.encode(b)),
@@ -26,15 +31,12 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 
 /**
  * Verify request authentication.
- * Supports:
- *   - Bearer token in Authorization header
- *   - ?token= query parameter (for simple webhook configs)
- *
- * AUTH_TOKEN is required — the service rejects all requests if it's not set.
+ * AUTH_TOKEN is required. Requests must present it via
+ * Authorization: Bearer <token>.
  */
 export async function verifyAuth(request: Request, env: Env): Promise<boolean> {
   if (!env.AUTH_TOKEN) {
-    console.error("AUTH_TOKEN not configured - rejecting all requests");
+    console.error("AUTH_TOKEN not configured");
     return false;
   }
 
@@ -45,13 +47,6 @@ export async function verifyAuth(request: Request, env: Env): Promise<boolean> {
     if (match?.[1]) {
       return timingSafeEqual(match[1], env.AUTH_TOKEN);
     }
-  }
-
-  // Check ?token= query parameter
-  const url = new URL(request.url);
-  const queryToken = url.searchParams.get("token");
-  if (queryToken) {
-    return timingSafeEqual(queryToken, env.AUTH_TOKEN);
   }
 
   return false;

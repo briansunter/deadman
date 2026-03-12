@@ -1,6 +1,7 @@
 import type { Env } from "./types.ts";
 import { AlertmanagerPayloadSchema } from "./types.ts";
 import { verifyAuth } from "./auth.ts";
+import { assertRuntimeConfig } from "./config.ts";
 
 export { HeartbeatMonitor } from "./heartbeat-monitor.ts";
 
@@ -11,11 +12,23 @@ function getMonitor(env: Env) {
   return env.HEARTBEAT_MONITOR.get(id);
 }
 
-function json(data: unknown, status = 200): Response {
+function json(data: unknown, status = 200, headers: HeadersInit = {}): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
   });
+}
+
+function methodNotAllowed(allowed: string): Response {
+  return json({ error: "Method Not Allowed" }, 405, { Allow: allowed });
+}
+
+function misconfigured(error: unknown): Response {
+  console.error("Service misconfigured:", error);
+  return json({ error: "Service misconfigured" }, 500);
 }
 
 export default {
@@ -25,12 +38,37 @@ export default {
 
     // Health check - no auth needed
     if (path === "/health") {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return methodNotAllowed("GET, HEAD");
+      }
       return new Response("ok");
+    }
+
+    if (path === "/status" && request.method !== "GET") {
+      return methodNotAllowed("GET");
+    }
+
+    if (path === "/ping" && request.method !== "GET") {
+      return methodNotAllowed("GET");
+    }
+
+    if (path === "/webhook/alertmanager" && request.method !== "POST") {
+      return methodNotAllowed("POST");
+    }
+
+    if (!env.AUTH_TOKEN?.trim()) {
+      return misconfigured("AUTH_TOKEN is required");
     }
 
     // All other endpoints require auth
     if (!(await verifyAuth(request, env))) {
       return json({ error: "Unauthorized" }, 401);
+    }
+
+    try {
+      assertRuntimeConfig(env);
+    } catch (error) {
+      return misconfigured(error);
     }
 
     // Status endpoint
@@ -40,7 +78,7 @@ export default {
     }
 
     // Alertmanager webhook receiver
-    if (path === "/webhook/alertmanager" && request.method === "POST") {
+    if (path === "/webhook/alertmanager") {
       let body: unknown;
       try {
         body = await request.json();
@@ -88,6 +126,7 @@ export default {
   // Cron trigger - backup check every minute
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     console.log(`Cron trigger fired at ${new Date(controller.scheduledTime).toISOString()}`);
+    assertRuntimeConfig(env);
     const monitor = getMonitor(env);
     await monitor.checkHeartbeat();
   },
