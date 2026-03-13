@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import type { HeartbeatState } from "./types.ts";
+import { mockCloudflareWorkers } from "./test-helpers.ts";
 
 const sendNotifications = mock(async () => {});
 
@@ -6,25 +8,11 @@ mock.module("./notify.ts", () => ({
   sendNotifications,
 }));
 
-mock.module("cloudflare:workers", () => ({
-  DurableObject: class DurableObject<T> {
-    constructor(
-      public ctx: unknown,
-      public env: T
-    ) {}
-  },
-}));
+mockCloudflareWorkers();
 
 const { HeartbeatMonitor } = await import("./heartbeat-monitor.ts");
 
-interface TestState {
-  lastHeartbeat: number;
-  lastAlertSent: number;
-  isAlerting: boolean;
-  source: string;
-}
-
-function createStorage(initialState?: TestState) {
+function createStorage(initialState?: HeartbeatState) {
   let alarm: number | null = null;
   let state = initialState;
   let deleted = false;
@@ -36,7 +24,8 @@ function createStorage(initialState?: TestState) {
     },
     async put(key: string, value: unknown): Promise<void> {
       if (key === "state") {
-        state = value as TestState;
+        state = value as HeartbeatState;
+        deleted = false;
       }
     },
     async delete(key: string): Promise<void> {
@@ -60,7 +49,7 @@ function createStorage(initialState?: TestState) {
   };
 }
 
-function createMonitor(initialState?: TestState, envOverrides: Record<string, string> = {}) {
+function createMonitor(initialState?: HeartbeatState, envOverrides: Record<string, string> = {}) {
   const storage = createStorage(initialState);
   const monitor = new HeartbeatMonitor(
     { storage } as never,
@@ -77,8 +66,7 @@ function createMonitor(initialState?: TestState, envOverrides: Record<string, st
 
 describe("HeartbeatMonitor", () => {
   beforeEach(() => {
-    sendNotifications.mockClear();
-    sendNotifications.mockImplementation(async () => {});
+    sendNotifications.mockReset();
   });
 
   // --- recordHeartbeat ---

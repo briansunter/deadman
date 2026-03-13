@@ -1,4 +1,5 @@
-import { describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { mockCloudflareWorkers } from "./test-helpers.ts";
 
 const getStatus = mock(
   async () =>
@@ -23,14 +24,7 @@ mock.module("cloudflare:email", () => ({
   EmailMessage: class EmailMessage {},
 }));
 
-mock.module("cloudflare:workers", () => ({
-  DurableObject: class DurableObject<T> {
-    constructor(
-      public ctx: unknown,
-      public env: T
-    ) {}
-  },
-}));
+mockCloudflareWorkers();
 
 const { default: worker } = await import("./index.ts");
 
@@ -61,6 +55,12 @@ function authReq(path: string, opts: RequestInit = {}) {
     },
   });
 }
+
+beforeEach(() => {
+  getStatus.mockClear();
+  recordHeartbeat.mockClear();
+  resetState.mockClear();
+});
 
 // --- /health ---
 
@@ -220,56 +220,24 @@ describe("/webhook/alertmanager", () => {
     expect(response.status).toBe(400);
   });
 
-  test("records heartbeat for Watchdog alert", async () => {
-    recordHeartbeat.mockClear();
-    const response = await worker.fetch(
-      authReq("/webhook/alertmanager", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          alerts: [{ status: "firing", labels: { alertname: "Watchdog" } }],
+  for (const alertname of ["Watchdog", "DeadMansSwitch", "InfoInhibitor"]) {
+    test(`records heartbeat for ${alertname} alert`, async () => {
+      const response = await worker.fetch(
+        authReq("/webhook/alertmanager", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            alerts: [{ status: "firing", labels: { alertname } }],
+          }),
         }),
-      }),
-      createEnv()
-    );
-    expect(response.status).toBe(200);
-    expect(recordHeartbeat).toHaveBeenCalledWith("alertmanager:Watchdog");
-  });
-
-  test("records heartbeat for DeadMansSwitch alert", async () => {
-    recordHeartbeat.mockClear();
-    const response = await worker.fetch(
-      authReq("/webhook/alertmanager", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          alerts: [{ status: "firing", labels: { alertname: "DeadMansSwitch" } }],
-        }),
-      }),
-      createEnv()
-    );
-    expect(response.status).toBe(200);
-    expect(recordHeartbeat).toHaveBeenCalledWith("alertmanager:DeadMansSwitch");
-  });
-
-  test("records heartbeat for InfoInhibitor alert", async () => {
-    recordHeartbeat.mockClear();
-    const response = await worker.fetch(
-      authReq("/webhook/alertmanager", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          alerts: [{ status: "firing", labels: { alertname: "InfoInhibitor" } }],
-        }),
-      }),
-      createEnv()
-    );
-    expect(response.status).toBe(200);
-    expect(recordHeartbeat).toHaveBeenCalledWith("alertmanager:InfoInhibitor");
-  });
+        createEnv()
+      );
+      expect(response.status).toBe(200);
+      expect(recordHeartbeat).toHaveBeenCalledWith(`alertmanager:${alertname}`);
+    });
+  }
 
   test("ignores non-watchdog alerts", async () => {
-    recordHeartbeat.mockClear();
     const response = await worker.fetch(
       authReq("/webhook/alertmanager", {
         method: "POST",
@@ -287,7 +255,6 @@ describe("/webhook/alertmanager", () => {
   });
 
   test("ignores resolved Watchdog alerts", async () => {
-    recordHeartbeat.mockClear();
     const response = await worker.fetch(
       authReq("/webhook/alertmanager", {
         method: "POST",
@@ -304,7 +271,6 @@ describe("/webhook/alertmanager", () => {
   });
 
   test("finds Watchdog among multiple alerts", async () => {
-    recordHeartbeat.mockClear();
     const response = await worker.fetch(
       authReq("/webhook/alertmanager", {
         method: "POST",
@@ -323,7 +289,6 @@ describe("/webhook/alertmanager", () => {
   });
 
   test("accepts payload with extra fields (loose schema)", async () => {
-    recordHeartbeat.mockClear();
     const response = await worker.fetch(
       authReq("/webhook/alertmanager", {
         method: "POST",
@@ -362,7 +327,6 @@ describe("/ping", () => {
   });
 
   test("records heartbeat with source param", async () => {
-    recordHeartbeat.mockClear();
     const response = await worker.fetch(
       authReq("/ping?source=my-script"),
       createEnv()
@@ -372,7 +336,6 @@ describe("/ping", () => {
   });
 
   test("defaults source to 'ping'", async () => {
-    recordHeartbeat.mockClear();
     const response = await worker.fetch(authReq("/ping"), createEnv());
     expect(response.status).toBe(200);
     expect(recordHeartbeat).toHaveBeenCalledWith("ping");
@@ -388,7 +351,6 @@ describe("/reset", () => {
   });
 
   test("resets state with POST", async () => {
-    resetState.mockClear();
     const response = await worker.fetch(
       authReq("/reset", { method: "POST" }),
       createEnv()
