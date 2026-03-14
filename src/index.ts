@@ -56,6 +56,10 @@ export default {
       return methodNotAllowed("POST");
     }
 
+    if (path === "/reset" && request.method !== "POST") {
+      return methodNotAllowed("POST");
+    }
+
     if (!env.AUTH_TOKEN?.trim()) {
       return misconfigured("AUTH_TOKEN is required");
     }
@@ -89,7 +93,7 @@ export default {
       const result = AlertmanagerPayloadSchema.safeParse(body);
       if (!result.success) {
         console.error("Invalid alertmanager payload:", result.error.issues);
-        return json({ error: "Invalid payload", issues: result.error.issues }, 400);
+        return json({ error: "Invalid payload" }, 400);
       }
 
       const payload = result.data;
@@ -115,7 +119,6 @@ export default {
 
     // Reset endpoint - clear state back to "waiting"
     if (path === "/reset") {
-      if (request.method !== "POST") return methodNotAllowed("POST");
       const monitor = getMonitor(env);
       return monitor.resetState();
     }

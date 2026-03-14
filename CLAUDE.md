@@ -28,12 +28,12 @@ Use `bun` instead of `npm`/`node` for all commands.
 2. Worker validates auth (timing-safe Bearer token), parses payload with Zod
 3. Only `Watchdog`/`DeadMansSwitch`/`InfoInhibitor` alerts refresh the heartbeat — other alerts are ignored
 4. HeartbeatMonitor Durable Object records timestamp, schedules alarm at `now + timeout`
-5. Alarm or cron (every minute) fires → if elapsed > timeout, triggers notifications
+5. Alarm fires → if elapsed > timeout, triggers notifications; alarm re-schedules itself
 6. Alert cooldown prevents repeated notifications (default 15 min)
 
 **Key files**:
-- `src/index.ts` — Worker fetch handler, routes, cron trigger. Re-exports `HeartbeatMonitor` DO class.
-- `src/heartbeat-monitor.ts` — Singleton Durable Object. State machine with `lastHeartbeat`, `lastAlertSent`, `isAlerting`. Uses DO alarms + cron as backup.
+- `src/index.ts` — Worker fetch handler, routes. Re-exports `HeartbeatMonitor` DO class.
+- `src/heartbeat-monitor.ts` — Singleton Durable Object. State machine with `lastHeartbeat`, `lastAlertSent`, `isAlerting`. Uses DO alarms with self-rescheduling.
 - `src/notify.ts` — Multi-channel notification dispatcher. Channels return `false` if unconfigured, `true` on success, throw on failure.
 - `src/auth.ts` — HMAC-based timing-safe token comparison.
 - `src/types.ts` — `Env` interface, Zod schemas for Alertmanager payloads, `HeartbeatState`.
@@ -44,7 +44,7 @@ Use `bun` instead of `npm`/`node` for all commands.
 
 Worker config is in `wrangler.toml`. Secrets are set via `wrangler secret put <NAME>`:
 - `AUTH_TOKEN` (required)
-- `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `EMAIL_FROM`, `EMAIL_TO` (optional)
+- `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `EMAIL_FROM`, `EMAIL_TO` (optional)
 
 Env vars `HEARTBEAT_TIMEOUT_SECONDS` (default 300) and `ALERT_COOLDOWN_SECONDS` (default 900) are set in `wrangler.toml [vars]`. Both validate to positive integers at runtime.
 

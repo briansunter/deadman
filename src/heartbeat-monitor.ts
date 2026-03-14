@@ -138,24 +138,23 @@ export class HeartbeatMonitor extends DurableObject<Env> {
     const state = await this.getState();
     const now = Date.now();
     const timeout = this.getTimeout();
-    const elapsed = state.lastHeartbeat ? now - state.lastHeartbeat : null;
-
     // Derive status from actual elapsed time, not just persisted isAlerting,
-    // so /status stays truthful even if the alarm/cron is delayed.
+    // so /status stays truthful even if the alarm is delayed.
     let status: string;
+    let elapsed: number | null;
     if (!state.lastHeartbeat) {
       status = "waiting";
-    } else if (elapsed! > timeout) {
-      status = "alerting";
+      elapsed = null;
     } else {
-      status = "healthy";
+      elapsed = now - state.lastHeartbeat;
+      status = elapsed > timeout ? "alerting" : "healthy";
     }
 
     return new Response(
       JSON.stringify({
         status,
         lastHeartbeat: state.lastHeartbeat ? new Date(state.lastHeartbeat).toISOString() : null,
-        elapsedSeconds: elapsed ? Math.round(elapsed / 1000) : null,
+        elapsedSeconds: elapsed !== null ? Math.round(elapsed / 1000) : null,
         timeoutSeconds: timeout / 1000,
         isAlerting: state.isAlerting,
         source: state.source,

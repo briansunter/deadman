@@ -101,13 +101,13 @@ export function getRuntimeConfigIssues(env: Partial<Env>): string[] {
   try {
     getHeartbeatTimeoutMs(env as Pick<Env, "HEARTBEAT_TIMEOUT_SECONDS">);
   } catch (error) {
-    issues.push((error as Error).message);
+    issues.push(error instanceof Error ? error.message : String(error));
   }
 
   try {
     getAlertCooldownMs(env as Pick<Env, "ALERT_COOLDOWN_SECONDS">);
   } catch (error) {
-    issues.push((error as Error).message);
+    issues.push(error instanceof Error ? error.message : String(error));
   }
 
   const { issues: notificationIssues, hasCompleteChannel } = getNotificationConfigState(env);

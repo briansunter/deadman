@@ -5,6 +5,9 @@ AUTH_TOKEN=change-me-to-a-secure-random-token
 
 # Configure at least one complete notification channel.
 
+# Slack incoming webhook URL (Apps > Incoming Webhooks)
+# SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+
 # Discord webhook URL (Server Settings > Integrations > Webhooks)
 # DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 

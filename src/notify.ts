@@ -60,10 +60,11 @@ async function sendSlack({ title, message, env, isRecovery }: NotifyParams): Pro
     body: JSON.stringify({
       text: `${emoji} *${title}*\n${message}`,
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!res.ok) {
-    throw new Error(`Slack webhook failed: ${res.status} ${await res.text()}`);
+    throw new Error(`Slack webhook failed: ${res.status}`);
   }
   return true;
 }
@@ -85,10 +86,11 @@ async function sendDiscord({ title, message, env, isRecovery }: NotifyParams): P
         },
       ],
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!res.ok) {
-    throw new Error(`Discord webhook failed: ${res.status} ${await res.text()}`);
+    throw new Error(`Discord webhook failed: ${res.status}`);
   }
   return true;
 }
@@ -108,10 +110,11 @@ async function sendTelegram({ title, message, env }: NotifyParams): Promise<bool
       text,
       parse_mode: "MarkdownV2",
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!res.ok) {
-    throw new Error(`Telegram API failed: ${res.status} ${await res.text()}`);
+    throw new Error(`Telegram API failed: ${res.status}`);
   }
   return true;
 }
