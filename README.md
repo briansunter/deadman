@@ -1,4 +1,6 @@
-![Deadman](docs/banner.png)
+<p align="center">
+  <img src="docs/banner.png" alt="Deadman" width="320">
+</p>
 
 # Deadman
 
