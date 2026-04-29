@@ -1,5 +1,7 @@
 # Deadman
 
+![Deadman: a dead man's switch for Prometheus/Alertmanager on Cloudflare Workers + Durable Objects](docs/hero.png)
+
 A dead man's switch for Prometheus/Alertmanager on Cloudflare Workers + Durable Objects.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/briansunter/deadman)
