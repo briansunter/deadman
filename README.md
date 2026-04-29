@@ -1,6 +1,6 @@
-# Deadman
+![Deadman](docs/banner.png)
 
-![Deadman: a dead man's switch for Prometheus/Alertmanager on Cloudflare Workers + Durable Objects](docs/hero.png)
+# Deadman
 
 A dead man's switch for Prometheus/Alertmanager on Cloudflare Workers + Durable Objects.
 
@@ -10,16 +10,7 @@ Prometheus can't alert you if it's down. Deadman runs on independent infrastruct
 
 ## How It Works
 
-```
-Prometheus → Alertmanager → POST /webhook → Deadman Worker → Durable Object
-                                                                  ↓
-                                                          timeout expires?
-                                                           ↓           ↓
-                                                          no           yes
-                                                     wait for      alert via
-                                                   next heartbeat  Discord/Slack/
-                                                                   Telegram/Email
-```
+![How Deadman works: Alertmanager sends heartbeats to a Cloudflare Worker that resets a Durable Object timer; if the timer expires, alerts fire to Discord/Slack/Telegram/Email](docs/explainer.png)
 
 1. **Heartbeat**: Alertmanager sends a Watchdog alert to Deadman every minute. Each one resets a countdown timer (default 5 min).
 2. **Alert**: If the timer expires with no heartbeat, notifications fire on all configured channels. Repeats with a cooldown (default 15 min).
