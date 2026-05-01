@@ -84,8 +84,8 @@ See [alertmanager-config.example.yaml](./alertmanager-config.example.yaml) for a
 | Secret | Required | Description |
 |---|---|---|
 | `AUTH_TOKEN` | **Yes** | Bearer token for all endpoints except `/health` |
-| `DISCORD_WEBHOOK_URL` | No | Discord channel webhook |
-| `SLACK_WEBHOOK_URL` | No | Slack incoming webhook |
+| `DISCORD_WEBHOOK_URL` | No | Discord channel webhook. Must be an HTTPS URL |
+| `SLACK_WEBHOOK_URL` | No | Slack incoming webhook. Must be an HTTPS URL |
 | `TELEGRAM_BOT_TOKEN` | No | Requires `TELEGRAM_CHAT_ID` |
 | `TELEGRAM_CHAT_ID` | No | Requires `TELEGRAM_BOT_TOKEN` |
 
@@ -95,8 +95,8 @@ At least one notification channel must be configured.
 
 | Variable | Default | Description |
 |---|---|---|
-| `HEARTBEAT_TIMEOUT_SECONDS` | `300` (5 min) | How long without a heartbeat before alerting |
-| `ALERT_COOLDOWN_SECONDS` | `900` (15 min) | Minimum interval between repeated alerts |
+| `HEARTBEAT_TIMEOUT_SECONDS` | `300` (5 min) | Whole positive seconds without a heartbeat before alerting |
+| `ALERT_COOLDOWN_SECONDS` | `900` (15 min) | Whole positive seconds between repeated alerts |
 | `EMAIL_FROM` / `EMAIL_TO` | — | Cloudflare Email Routing addresses |
 
 ### Custom Alert Messages
@@ -121,7 +121,7 @@ All endpoints except `/health` require `Authorization: Bearer <token>`.
 | `/health` | GET | Liveness check (no auth) |
 | `/status` | GET | Current heartbeat state |
 | `/webhook/alertmanager` | POST | Alertmanager webhook receiver |
-| `/ping?source=<name>` | GET | Manual heartbeat for testing |
+| `/ping?source=<name>` | GET | Manual heartbeat for testing. Source is trimmed and limited to 128 printable characters |
 | `/reset` | POST | Clear state, return to waiting |
 
 ## Development

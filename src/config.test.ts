@@ -152,6 +152,24 @@ describe("runtime config validation", () => {
     );
   });
 
+  test("rejects invalid Slack webhook URLs", () => {
+    expect(
+      getRuntimeConfigIssues({
+        AUTH_TOKEN: "super-secret-token",
+        SLACK_WEBHOOK_URL: "not-a-url",
+      } as never)
+    ).toContain("SLACK_WEBHOOK_URL must be a valid HTTPS URL");
+  });
+
+  test("rejects non-HTTPS Discord webhook URLs", () => {
+    expect(
+      getRuntimeConfigIssues({
+        AUTH_TOKEN: "super-secret-token",
+        DISCORD_WEBHOOK_URL: "http://discord.example/webhook",
+      } as never)
+    ).toContain("DISCORD_WEBHOOK_URL must be a valid HTTPS URL");
+  });
+
   test("throws RuntimeConfigError with all issues joined", () => {
     expect(() =>
       assertRuntimeConfig({} as never)
@@ -188,14 +206,44 @@ describe("runtime config validation", () => {
     ).toThrow(RuntimeConfigError);
   });
 
-  test("truncates float timeout to integer (parseInt behavior)", () => {
+  test("rejects float timeout values", () => {
     expect(
       () =>
         assertRuntimeConfig({
           ...baseEnv,
           HEARTBEAT_TIMEOUT_SECONDS: "1.5",
         } as never)
-    ).not.toThrow();
+    ).toThrow(RuntimeConfigError);
+  });
+
+  test("rejects numeric values with trailing garbage", () => {
+    expect(
+      () =>
+        assertRuntimeConfig({
+          ...baseEnv,
+          HEARTBEAT_TIMEOUT_SECONDS: "300seconds",
+        } as never)
+    ).toThrow(RuntimeConfigError);
+  });
+
+  test("rejects unsafe integer timeout values", () => {
+    expect(
+      () =>
+        assertRuntimeConfig({
+          ...baseEnv,
+          HEARTBEAT_TIMEOUT_SECONDS: "9007199254740992",
+        } as never)
+    ).toThrow(RuntimeConfigError);
+  });
+
+  test("rejects timeout values too large to convert to milliseconds safely", () => {
+    expect(
+      () =>
+        assertRuntimeConfig({
+          ...baseEnv,
+          HEARTBEAT_TIMEOUT_SECONDS: "9007199254741",
+        } as never)
+    ).toThrow(RuntimeConfigError);
   });
 
   test("throws for invalid cooldown values", () => {
@@ -216,6 +264,10 @@ describe("getHeartbeatTimeoutMs", () => {
 
   test("returns configured value in milliseconds", () => {
     expect(getHeartbeatTimeoutMs(env("120"))).toBe(120_000);
+  });
+
+  test("accepts leading zeroes in configured values", () => {
+    expect(getHeartbeatTimeoutMs(env("001"))).toBe(1000);
   });
 
   test("returns default (300s) when not configured", () => {

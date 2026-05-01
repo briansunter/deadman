@@ -14,6 +14,24 @@ describe("verifyAuth", () => {
     ).toBe(true);
   });
 
+  test("trims AUTH_TOKEN configuration before comparison", async () => {
+    expect(
+      await verifyAuth(
+        req("https://x/status", { Authorization: "Bearer super-secret-token" }),
+        { AUTH_TOKEN: "  super-secret-token  " } as never
+      )
+    ).toBe(true);
+  });
+
+  test("trims bearer token whitespace before comparison", async () => {
+    expect(
+      await verifyAuth(
+        req("https://x/status", { Authorization: "Bearer   super-secret-token   " }),
+        env
+      )
+    ).toBe(true);
+  });
+
   test("rejects wrong token", async () => {
     expect(
       await verifyAuth(req("https://x/status", { Authorization: "Bearer wrong-token" }), env)

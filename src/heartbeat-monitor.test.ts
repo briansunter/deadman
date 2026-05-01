@@ -64,6 +64,17 @@ function createMonitor(initialState?: HeartbeatState, envOverrides: Record<strin
   return { monitor, storage };
 }
 
+async function withMockedNow<T>(now: number, fn: () => Promise<T>): Promise<T> {
+  const realNow = Date.now;
+  Date.now = () => now;
+
+  try {
+    return await fn();
+  } finally {
+    Date.now = realNow;
+  }
+}
+
 describe("HeartbeatMonitor", () => {
   beforeEach(() => {
     sendNotifications.mockReset();
@@ -224,7 +235,7 @@ describe("HeartbeatMonitor", () => {
     });
 
     test("does not alert when no heartbeat ever received", async () => {
-      const { monitor } = createMonitor({
+      const { monitor, storage } = createMonitor({
         lastHeartbeat: 0,
         lastAlertSent: 0,
         isAlerting: false,
@@ -233,6 +244,20 @@ describe("HeartbeatMonitor", () => {
 
       await monitor.alarm();
       expect(sendNotifications).not.toHaveBeenCalled();
+      expect(storage.snapshot().alarm).toBeNull();
+    });
+
+    test("sends alert when heartbeat is exactly at the timeout", async () => {
+      const now = 1_000_000;
+      const { monitor } = createMonitor({
+        lastHeartbeat: now - 300_000,
+        lastAlertSent: 0,
+        isAlerting: false,
+        source: "alertmanager:Watchdog",
+      });
+
+      await withMockedNow(now, () => monitor.alarm());
+      expect(sendNotifications).toHaveBeenCalledTimes(1);
     });
 
     test("respects alert cooldown", async () => {
@@ -292,6 +317,23 @@ describe("HeartbeatMonitor", () => {
       const snapshot = storage.snapshot();
 
       expect(snapshot.alarm).toBeGreaterThan(Date.now());
+    });
+
+    test("re-schedules early alarms at the heartbeat expiry time", async () => {
+      const now = 1_000_000;
+      const lastHeartbeat = now - 60_000;
+      const { monitor, storage } = createMonitor({
+        lastHeartbeat,
+        lastAlertSent: 0,
+        isAlerting: false,
+        source: "alertmanager:Watchdog",
+      });
+
+      await withMockedNow(now, () => monitor.alarm());
+      const snapshot = storage.snapshot();
+
+      expect(sendNotifications).not.toHaveBeenCalled();
+      expect(snapshot.alarm).toBe(lastHeartbeat + 300_000);
     });
 
     test("does not persist alert state if notification fails", async () => {
@@ -397,6 +439,22 @@ describe("HeartbeatMonitor", () => {
 
       // Status should reflect elapsed time, not the flag
       expect(body.status).toBe("alerting");
+    });
+
+    test("returns 'alerting' when elapsed time is exactly the timeout", async () => {
+      const now = 1_000_000;
+      const { monitor } = createMonitor({
+        lastHeartbeat: now - 300_000,
+        lastAlertSent: 0,
+        isAlerting: false,
+        source: "alertmanager:Watchdog",
+      });
+
+      const response = await withMockedNow(now, () => monitor.getStatus());
+      const body = (await response.json()) as Record<string, unknown>;
+
+      expect(body.status).toBe("alerting");
+      expect(body.elapsedSeconds).toBe(300);
     });
 
     test("returns ISO timestamp for lastHeartbeat", async () => {

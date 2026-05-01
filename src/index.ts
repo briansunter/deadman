@@ -6,6 +6,14 @@ import { assertRuntimeConfig } from "./config.ts";
 export { HeartbeatMonitor } from "./heartbeat-monitor.ts";
 
 const MONITOR_ID = "singleton";
+const MAX_PING_SOURCE_LENGTH = 128;
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/;
+const PROTECTED_PATHS = new Set([
+  "/status",
+  "/ping",
+  "/webhook/alertmanager",
+  "/reset",
+]);
 
 function getMonitor(env: Env) {
   const id = env.HEARTBEAT_MONITOR.idFromName(MONITOR_ID);
@@ -26,6 +34,37 @@ function methodNotAllowed(allowed: string): Response {
   return json({ error: "Method Not Allowed" }, 405, { Allow: allowed });
 }
 
+function isProtectedPath(path: string): boolean {
+  return PROTECTED_PATHS.has(path);
+}
+
+function parsePingSource(url: URL): { source: string } | { error: Response } {
+  const rawSource = url.searchParams.get("source");
+  if (rawSource === null) {
+    return { source: "ping" };
+  }
+
+  const source = rawSource.trim();
+  if (!source) {
+    return { source: "ping" };
+  }
+
+  if (source.length > MAX_PING_SOURCE_LENGTH) {
+    return {
+      error: json(
+        { error: `source must be ${MAX_PING_SOURCE_LENGTH} characters or fewer` },
+        400
+      ),
+    };
+  }
+
+  if (CONTROL_CHARACTER_PATTERN.test(source)) {
+    return { error: json({ error: "source must not contain control characters" }, 400) };
+  }
+
+  return { source };
+}
+
 function misconfigured(error: unknown): Response {
   console.error("Service misconfigured:", error);
   return json({ error: "Service misconfigured" }, 500);
@@ -41,7 +80,7 @@ export default {
       if (request.method !== "GET" && request.method !== "HEAD") {
         return methodNotAllowed("GET, HEAD");
       }
-      return new Response("ok");
+      return new Response(request.method === "HEAD" ? null : "ok");
     }
 
     if (path === "/status" && request.method !== "GET") {
@@ -58,6 +97,10 @@ export default {
 
     if (path === "/reset" && request.method !== "POST") {
       return methodNotAllowed("POST");
+    }
+
+    if (!isProtectedPath(path)) {
+      return json({ error: "Not Found" }, 404);
     }
 
     if (!env.AUTH_TOKEN?.trim()) {
@@ -125,9 +168,13 @@ export default {
 
     // Simple ping endpoint (for testing or custom integrations)
     if (path === "/ping") {
-      const source = url.searchParams.get("source") || "ping";
+      const sourceResult = parsePingSource(url);
+      if ("error" in sourceResult) {
+        return sourceResult.error;
+      }
+
       const monitor = getMonitor(env);
-      return monitor.recordHeartbeat(source);
+      return monitor.recordHeartbeat(sourceResult.source);
     }
 
     return json({ error: "Not Found" }, 404);

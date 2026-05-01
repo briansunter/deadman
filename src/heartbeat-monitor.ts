@@ -75,12 +75,18 @@ export class HeartbeatMonitor extends DurableObject<Env> {
     const elapsed = now - state.lastHeartbeat;
     const timeout = this.getTimeout();
 
-    if (state.lastHeartbeat > 0 && elapsed > timeout) {
-      await this.triggerAlert(state, now);
+    if (!state.lastHeartbeat) {
+      return;
     }
 
-    // Re-schedule alarm to keep checking
-    await this.ctx.storage.setAlarm(now + timeout);
+    if (elapsed >= timeout) {
+      await this.triggerAlert(state, now);
+      await this.ctx.storage.setAlarm(now + timeout);
+      return;
+    }
+
+    // Keep the alarm anchored to heartbeat expiry, not to an early/stale alarm event.
+    await this.ctx.storage.setAlarm(state.lastHeartbeat + timeout);
   }
 
   private async triggerAlert(state: HeartbeatState, now: number): Promise<void> {
@@ -147,7 +153,7 @@ export class HeartbeatMonitor extends DurableObject<Env> {
       elapsed = null;
     } else {
       elapsed = now - state.lastHeartbeat;
-      status = elapsed > timeout ? "alerting" : "healthy";
+      status = elapsed >= timeout ? "alerting" : "healthy";
     }
 
     return new Response(

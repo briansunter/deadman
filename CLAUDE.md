@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Deadman is a Cloudflare Worker that acts as a dead man's switch for Prometheus/Alertmanager. It expects periodic Watchdog heartbeat alerts and notifies via Discord, Telegram, or Cloudflare Email Routing when they stop arriving.
+Deadman is a Cloudflare Worker that acts as a dead man's switch for Prometheus/Alertmanager. It expects periodic Watchdog heartbeat alerts and notifies via Slack, Discord, Telegram, or Cloudflare Email Routing when they stop arriving.
 
 ## Commands
 
@@ -44,8 +44,8 @@ Use `bun` instead of `npm`/`node` for all commands.
 
 Worker config is in `wrangler.toml`. Secrets are set via `wrangler secret put <NAME>`:
 - `AUTH_TOKEN` (required)
-- `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `EMAIL_FROM`, `EMAIL_TO` (optional)
+- `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (optional)
 
-Env vars `HEARTBEAT_TIMEOUT_SECONDS` (default 300) and `ALERT_COOLDOWN_SECONDS` (default 900) are set in `wrangler.toml [vars]`. Both validate to positive integers at runtime.
+Env vars `HEARTBEAT_TIMEOUT_SECONDS` (default 300), `ALERT_COOLDOWN_SECONDS` (default 900), `EMAIL_FROM`, and `EMAIL_TO` are set in `wrangler.toml [vars]`. Timeout/cooldown values must be whole positive seconds. Slack and Discord webhook URLs must be valid HTTPS URLs.
 
 Local dev secrets go in `.dev.vars` (see `.dev.vars.example`).

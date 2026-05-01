@@ -80,6 +80,7 @@ describe("/health", () => {
       createEnv()
     );
     expect(res.status).toBe(200);
+    expect(await res.text()).toBe("");
   });
 
   test("returns 405 for POST", async () => {
@@ -335,10 +336,43 @@ describe("/ping", () => {
     expect(recordHeartbeat).toHaveBeenCalledWith("my-script");
   });
 
+  test("trims source param before recording", async () => {
+    const response = await worker.fetch(
+      authReq("/ping?source=%20my-script%20"),
+      createEnv()
+    );
+    expect(response.status).toBe(200);
+    expect(recordHeartbeat).toHaveBeenCalledWith("my-script");
+  });
+
   test("defaults source to 'ping'", async () => {
     const response = await worker.fetch(authReq("/ping"), createEnv());
     expect(response.status).toBe(200);
     expect(recordHeartbeat).toHaveBeenCalledWith("ping");
+  });
+
+  test("defaults whitespace-only source to 'ping'", async () => {
+    const response = await worker.fetch(authReq("/ping?source=%20%20"), createEnv());
+    expect(response.status).toBe(200);
+    expect(recordHeartbeat).toHaveBeenCalledWith("ping");
+  });
+
+  test("rejects source values that are too long", async () => {
+    const response = await worker.fetch(
+      authReq(`/ping?source=${"a".repeat(129)}`),
+      createEnv()
+    );
+    expect(response.status).toBe(400);
+    expect(recordHeartbeat).not.toHaveBeenCalled();
+  });
+
+  test("rejects source values with control characters", async () => {
+    const response = await worker.fetch(
+      authReq("/ping?source=line%0Abreak"),
+      createEnv()
+    );
+    expect(response.status).toBe(400);
+    expect(recordHeartbeat).not.toHaveBeenCalled();
   });
 });
 
@@ -365,6 +399,17 @@ describe("/reset", () => {
 describe("unknown routes", () => {
   test("returns 404 for unknown path", async () => {
     const response = await worker.fetch(authReq("/unknown"), createEnv());
+    expect(response.status).toBe(404);
+  });
+
+  test("returns 404 before notification config validation", async () => {
+    const response = await worker.fetch(
+      authReq("/unknown"),
+      createEnv({
+        DISCORD_WEBHOOK_URL: undefined,
+        TELEGRAM_BOT_TOKEN: "token-only",
+      })
+    );
     expect(response.status).toBe(404);
   });
 });

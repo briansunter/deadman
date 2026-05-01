@@ -2,6 +2,7 @@ import type { Env } from "./types.ts";
 
 const DEFAULT_TIMEOUT_SECONDS = 300;
 const DEFAULT_COOLDOWN_SECONDS = 900;
+const MAX_SAFE_SECONDS = Math.floor(Number.MAX_SAFE_INTEGER / 1000);
 
 const DEFAULT_ALERT_TITLE = "Deadman Switch - ALERTING SYSTEM DOWN";
 const DEFAULT_ALERT_MESSAGE = [
@@ -56,8 +57,13 @@ export class RuntimeConfigError extends Error {
   }
 }
 
-function hasValue(value: string | undefined): value is string {
-  return typeof value === "string" && value.trim().length > 0;
+export function getOptionalEnvValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function hasValue(value: string | undefined): boolean {
+  return getOptionalEnvValue(value) !== undefined;
 }
 
 function parsePositiveInteger(
@@ -65,11 +71,15 @@ function parsePositiveInteger(
   value: string | undefined,
   fallback: number
 ): number {
-  const rawValue = hasValue(value) ? value : String(fallback);
-  const parsed = Number.parseInt(rawValue, 10);
+  const rawValue = getOptionalEnvValue(value) ?? String(fallback);
 
-  if (!Number.isInteger(parsed) || parsed <= 0) {
+  if (!/^\d+$/.test(rawValue)) {
     throw new RuntimeConfigError(`${name} must be a positive integer`);
+  }
+
+  const parsed = Number(rawValue);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > MAX_SAFE_SECONDS) {
+    throw new RuntimeConfigError(`${name} must be a safe positive integer`);
   }
 
   return parsed;
@@ -139,30 +149,53 @@ function getNotificationConfigState(env: Partial<Env>): {
   issues: string[];
 } {
   const issues: string[] = [];
-  const hasSlack = hasValue(env.SLACK_WEBHOOK_URL);
-  const hasDiscord = hasValue(env.DISCORD_WEBHOOK_URL);
-  const hasTelegramToken = hasValue(env.TELEGRAM_BOT_TOKEN);
-  const hasTelegramChatId = hasValue(env.TELEGRAM_CHAT_ID);
-  const hasEmailFrom = hasValue(env.EMAIL_FROM);
-  const hasEmailTo = hasValue(env.EMAIL_TO);
+  const slackWebhookUrl = getOptionalEnvValue(env.SLACK_WEBHOOK_URL);
+  const discordWebhookUrl = getOptionalEnvValue(env.DISCORD_WEBHOOK_URL);
+  const telegramBotToken = getOptionalEnvValue(env.TELEGRAM_BOT_TOKEN);
+  const telegramChatId = getOptionalEnvValue(env.TELEGRAM_CHAT_ID);
+  const emailFrom = getOptionalEnvValue(env.EMAIL_FROM);
+  const emailTo = getOptionalEnvValue(env.EMAIL_TO);
 
-  if (hasTelegramToken !== hasTelegramChatId) {
+  const slackUrlIssues = slackWebhookUrl
+    ? getHttpsUrlIssues("SLACK_WEBHOOK_URL", slackWebhookUrl)
+    : [];
+  issues.push(...slackUrlIssues);
+
+  const discordUrlIssues = discordWebhookUrl
+    ? getHttpsUrlIssues("DISCORD_WEBHOOK_URL", discordWebhookUrl)
+    : [];
+  issues.push(...discordUrlIssues);
+
+  if (Boolean(telegramBotToken) !== Boolean(telegramChatId)) {
     issues.push("Telegram notifications require both TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID");
   }
 
-  if (hasEmailFrom !== hasEmailTo) {
+  if (Boolean(emailFrom) !== Boolean(emailTo)) {
     issues.push("Email notifications require both EMAIL_FROM and EMAIL_TO");
   }
 
-  if ((hasEmailFrom || hasEmailTo) && !env.EMAIL) {
+  if ((emailFrom || emailTo) && !env.EMAIL) {
     issues.push("Email notifications require the EMAIL binding");
   }
 
-  const hasTelegram = hasTelegramToken && hasTelegramChatId;
-  const hasEmail = hasEmailFrom && hasEmailTo && Boolean(env.EMAIL);
+  const hasSlack = Boolean(slackWebhookUrl && slackUrlIssues.length === 0);
+  const hasDiscord = Boolean(discordWebhookUrl && discordUrlIssues.length === 0);
+  const hasTelegram = Boolean(telegramBotToken && telegramChatId);
+  const hasEmail = Boolean(emailFrom && emailTo && env.EMAIL);
 
   return {
     hasCompleteChannel: hasSlack || hasDiscord || hasTelegram || hasEmail,
     issues,
   };
+}
+
+function getHttpsUrlIssues(name: string, value: string): string[] {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return [`${name} must be a valid HTTPS URL`];
+  }
+
+  return url.protocol === "https:" ? [] : [`${name} must be a valid HTTPS URL`];
 }

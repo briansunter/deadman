@@ -68,6 +68,20 @@ describe("sendNotifications", () => {
     expect(body.text).toContain("*Test*");
   });
 
+  test("trims configured webhook URLs before sending", async () => {
+    await sendNotifications({
+      title: "Test",
+      message: "msg",
+      env: createEnv({
+        SLACK_WEBHOOK_URL: "  https://hooks.slack.com/test  ",
+        DISCORD_WEBHOOK_URL: undefined,
+      }),
+    });
+
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://hooks.slack.com/test");
+  });
+
   test("Slack uses check mark emoji for recovery", async () => {
     await sendNotifications({
       title: "Recovered",
@@ -131,6 +145,18 @@ describe("sendNotifications", () => {
         env: createEnv({ DISCORD_WEBHOOK_URL: undefined }),
       })
     ).rejects.toThrow("No notification channels configured");
+  });
+
+  test("treats whitespace-only channel values as unconfigured", async () => {
+    await expect(
+      sendNotifications({
+        title: "Test",
+        message: "msg",
+        env: createEnv({ DISCORD_WEBHOOK_URL: "   " }),
+      })
+    ).rejects.toThrow("No notification channels configured");
+
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   test("throws when all configured channels fail", async () => {

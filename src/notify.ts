@@ -1,4 +1,8 @@
-import { RuntimeConfigError, getNotificationConfigIssues } from "./config.ts";
+import {
+  RuntimeConfigError,
+  getNotificationConfigIssues,
+  getOptionalEnvValue,
+} from "./config.ts";
 import type { Env } from "./types.ts";
 
 interface NotifyParams {
@@ -51,10 +55,11 @@ export async function sendNotifications(params: NotifyParams): Promise<void> {
 
 /** Returns true if the channel was configured and sent, false if skipped. Throws on failure. */
 async function sendSlack({ title, message, env, isRecovery }: NotifyParams): Promise<boolean> {
-  if (!env.SLACK_WEBHOOK_URL) return false;
+  const webhookUrl = getOptionalEnvValue(env.SLACK_WEBHOOK_URL);
+  if (!webhookUrl) return false;
 
   const emoji = isRecovery ? ":white_check_mark:" : ":rotating_light:";
-  const res = await fetch(env.SLACK_WEBHOOK_URL, {
+  const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -71,9 +76,10 @@ async function sendSlack({ title, message, env, isRecovery }: NotifyParams): Pro
 
 /** Returns true if the channel was configured and sent, false if skipped. Throws on failure. */
 async function sendDiscord({ title, message, env, isRecovery }: NotifyParams): Promise<boolean> {
-  if (!env.DISCORD_WEBHOOK_URL) return false;
+  const webhookUrl = getOptionalEnvValue(env.DISCORD_WEBHOOK_URL);
+  if (!webhookUrl) return false;
 
-  const res = await fetch(env.DISCORD_WEBHOOK_URL, {
+  const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -97,16 +103,18 @@ async function sendDiscord({ title, message, env, isRecovery }: NotifyParams): P
 
 /** Returns true if the channel was configured and sent, false if skipped. Throws on failure. */
 async function sendTelegram({ title, message, env }: NotifyParams): Promise<boolean> {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return false;
+  const botToken = getOptionalEnvValue(env.TELEGRAM_BOT_TOKEN);
+  const chatId = getOptionalEnvValue(env.TELEGRAM_CHAT_ID);
+  if (!botToken || !chatId) return false;
 
   const text = `*${escapeMarkdown(title)}*\n\n${escapeMarkdown(message)}`;
-  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: env.TELEGRAM_CHAT_ID,
+      chat_id: chatId,
       text,
       parse_mode: "MarkdownV2",
     }),
@@ -125,11 +133,13 @@ function escapeMarkdown(text: string): string {
 
 /** Returns true if the channel was configured and sent, false if skipped. Throws on failure. */
 async function sendCloudflareEmail({ title, message, env }: NotifyParams): Promise<boolean> {
-  if (!env.EMAIL || !env.EMAIL_FROM || !env.EMAIL_TO) return false;
+  const emailFrom = getOptionalEnvValue(env.EMAIL_FROM);
+  const emailTo = getOptionalEnvValue(env.EMAIL_TO);
+  if (!env.EMAIL || !emailFrom || !emailTo) return false;
 
   await env.EMAIL.send({
-    from: { name: "Deadman Switch", email: env.EMAIL_FROM },
-    to: env.EMAIL_TO,
+    from: { name: "Deadman Switch", email: emailFrom },
+    to: emailTo,
     subject: title,
     text: message,
   });

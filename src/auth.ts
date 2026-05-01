@@ -1,4 +1,5 @@
 import type { Env } from "./types.ts";
+import { getOptionalEnvValue } from "./config.ts";
 
 /**
  * Constant-time string comparison to prevent timing attacks.
@@ -35,7 +36,8 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
  * Authorization: Bearer <token>.
  */
 export async function verifyAuth(request: Request, env: Env): Promise<boolean> {
-  if (!env.AUTH_TOKEN) {
+  const authToken = getOptionalEnvValue(env.AUTH_TOKEN);
+  if (!authToken) {
     console.error("AUTH_TOKEN not configured");
     return false;
   }
@@ -44,8 +46,9 @@ export async function verifyAuth(request: Request, env: Env): Promise<boolean> {
   const authHeader = request.headers.get("Authorization");
   if (authHeader) {
     const match = authHeader.match(/^Bearer\s+(.+)$/i);
-    if (match?.[1]) {
-      return timingSafeEqual(match[1], env.AUTH_TOKEN);
+    const presentedToken = match?.[1]?.trim();
+    if (presentedToken) {
+      return timingSafeEqual(presentedToken, authToken);
     }
   }
 
