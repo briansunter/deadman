@@ -7,7 +7,8 @@
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "cf-typegen": "wrangler types",
-    "typecheck": "./node_modules/.bin/tsc --noEmit --pretty false",
+    "typecheck": "bunx tsc --noEmit --pretty false",
+    "check": "bun run typecheck && bun test",
     "test": "bun test"
   },
   "devDependencies": {
